@@ -34,3 +34,90 @@ Section 8 for exact thresholds and the honest Level 0 limitations
 """
 
 # Your code starts here.
+
+from dataclasses import dataclass
+from typing import List
+
+THRESHOLDS = {
+    "ph":         {"min": 6.5, "max": 8.5},
+    "turbidity":  {"min": 0,   "max": 5},
+    "tds":        {"min": 0,   "max": 500},
+    "chlorine":   {"min": 0.2, "max": 2.0},
+    "bacteria_cfu": {"min": 0, "max": 0},
+    "hardness":   {"min": 0,   "max": 200},
+}
+
+@dataclass
+class QualityReading:
+    zone_id: int
+    ph: float
+    turbidity: float
+    tds: float
+    chlorine: float
+    bacteria_cfu: float
+    hardness: float
+    timestamp: str
+    source: str  
+
+
+def check_violations(reading: QualityReading) -> List[str]:
+
+    violations = []
+    values = {
+        "ph": reading.ph,
+        "turbidity": reading.turbidity,
+        "tds": reading.tds,
+        "chlorine": reading.chlorine,
+        "bacteria_cfu": reading.bacteria_cfu,
+        "hardness": reading.hardness,
+    }
+    for param, value in values.items():
+        bounds = THRESHOLDS[param]
+        if value < bounds["min"] or value > bounds["max"]:
+            direction = "low" if value < bounds["min"] else "high"
+            violations.append(f"{param}_{direction}")
+    return violations
+
+
+def classify_status(violations: List[str]) -> str:
+    """
+    SAFE     -> no violations
+    WARNING  -> 1 minor violation (turbidity/hardness/TDS only)
+    ALERT    -> 1 violation on pH/chlorine, or 2+ violations
+    CRITICAL -> bacteria present, or 3+ violations
+    """
+    if not violations:
+        return "SAFE"
+    if any("bacteria" in v for v in violations):
+        return "CRITICAL"
+    if len(violations) >= 3:
+        return "CRITICAL"
+    if len(violations) >= 2:
+        return "ALERT"
+    minor_params = {"turbidity", "hardness", "tds"}
+    param_name = violations[0].rsplit("_", 1)[0]
+    if param_name in minor_params:
+        return "WARNING"
+    return "ALERT"  # single pH or chlorine violation
+
+
+def evaluate_reading(reading: QualityReading) -> dict:
+    violations = check_violations(reading)
+    status = classify_status(violations)
+    return {
+        "zone_id": reading.zone_id,
+        "status": status,
+        "violations": violations,
+    }
+
+if __name__ == "__main__":
+    test_cases = [
+        QualityReading(1, 7.2, 2, 300, 0.5, 0, 150, "2026-08-16T10:00", "manual"),
+        QualityReading(2, 7.0, 8, 400, 0.5, 0, 150, "2026-08-16T10:00", "manual"),
+        QualityReading(3, 6.1, 2, 300, 0.1, 0, 150, "2026-08-16T10:00", "manual"),
+        QualityReading(4, 7.0, 2, 300, 0.5, 12, 150, "2026-08-16T10:00", "manual"),
+        QualityReading(5, 6.0, 9, 600, 0.1, 0, 250, "2026-08-16T10:00", "manual"),
+    ]
+
+    for tc in test_cases:
+        print(evaluate_reading(tc))
