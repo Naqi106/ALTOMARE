@@ -30,7 +30,7 @@ class RawReadingIn(BaseModel):
 
 
 class RawReading(RawReadingIn):
-    reading_id: str
+    reading_id: int
     timestamp: datetime
 
 
