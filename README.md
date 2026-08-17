@@ -48,3 +48,40 @@ Then open `http://localhost:8000/docs` to see/test the live API.
 
 Full research, architecture rationale, and the day-by-day plan for every person is in
 `docs/` — read your section before starting.
+
+
+
+# AltoMare Frontend
+
+React + TypeScript frontend for the AltoMare Water Intelligence Dashboard.
+
+### Run Locally
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open the URL shown by Vite, usually:
+
+```text
+http://localhost:5173
+```
+
+### Verify
+
+```bash
+npm run build
+npm run lint
+```
+
+### Tech Stack
+
+React · TypeScript · Vite · Tailwind CSS · Leaflet · Recharts · Axios
+
+### Current Status
+
+The frontend currently uses **mock data**. Backend integration will be added later using the team's existing API contract.
+
+**Do not change shared API endpoint or database field names without coordinating with the team.**
