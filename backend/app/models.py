@@ -36,10 +36,10 @@ class RawReading(RawReadingIn):
 
 # ---------- LEAK ALERTS (Kushagra's module writes these) ----------
 class LeakAlert(BaseModel):
-    alert_id: str
+    alert_id: int
     zone_id: str
     estimated_loss_litres: float
-    confidence_score: float  # 0-100
+    confidence_score: float  # 0-1 (DB CHECK constraint: 0 <= confidence_score <= 1)
     method: Literal["water_balance", "mnf", "ppa", "billing_anomaly"]
     timestamp: datetime
     status: Literal["active", "resolved", "monitoring"] = "active"
@@ -59,25 +59,26 @@ class QualityReadingIn(BaseModel):
 
 
 class QualityReading(QualityReadingIn):
-    reading_id: str
+    reading_id: int  # SERIAL in Supabase (quality_readings.reading_id)
     timestamp: datetime
 
 
 # ---------- CORRELATION EVENTS (Palak's correlation logic writes these) ----------
 class CorrelationEvent(BaseModel):
-    event_id: str
+    event_id: int  # SERIAL in Supabase (correlation_events.event_id)
     zone_id: str
-    leak_alert_id: Optional[str] = None
-    quality_reading_id: Optional[str] = None
+    leak_alert_id: Optional[int] = None       # INT FK -> leak_alerts.alert_id
+    quality_reading_id: Optional[int] = None  # INT FK -> quality_readings.reading_id
     leak_caused_contamination: bool = False
-    risk_level: Literal["low", "monitor", "alert", "critical"] = "low"
+    # Must match the DB CHECK constraint exactly (uppercase, these 4 values only)
+    risk_level: Literal["SAFE", "WARNING", "ALERT", "CRITICAL"] = "SAFE"
 
 
 # ---------- REVENUE LOG (Piyush's calculators write/read these) ----------
 class RevenueLogEntry(BaseModel):
-    log_id: str
+    log_id: int  # SERIAL in Supabase (revenue_log.log_id)
     zone_id: str
-    leak_alert_id: Optional[str] = None
+    leak_alert_id: Optional[int] = None  # INT FK -> leak_alerts.alert_id
     litres_recovered: float
     amount_recovered: float
     billing_cycle: str
@@ -90,5 +91,5 @@ class RevenueSummary(BaseModel):
 
 # ---------- NOTIFY REQUEST (Piyush triggers this) ----------
 class NotifyRequest(BaseModel):
-    alert_id: str
+    alert_id: int  # references leak_alerts.alert_id (SERIAL/int)
     channel: Literal["whatsapp", "sms"] = "whatsapp"

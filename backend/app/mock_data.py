@@ -40,20 +40,20 @@ MOCK_ALERTS = [
 
 MOCK_CORRELATIONS = {
     "zone_4": {
-        "event_id": "corr_1",
+        "event_id": 1,
         "zone_id": "zone_4",
-        "leak_alert_id": "alert_1",
-        "quality_reading_id": "qr_9",
+        "leak_alert_id": 1,
+        "quality_reading_id": 9,
         "leak_caused_contamination": True,
-        "risk_level": "critical",
+        "risk_level": "CRITICAL",
     },
     "zone_2": {
-        "event_id": "corr_2",
+        "event_id": 2,
         "zone_id": "zone_2",
-        "leak_alert_id": "alert_2",
+        "leak_alert_id": 2,
         "quality_reading_id": None,
         "leak_caused_contamination": False,
-        "risk_level": "monitor",
+        "risk_level": "WARNING",
     },
 }
 
