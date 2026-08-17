@@ -37,6 +37,10 @@ Section 8 for exact thresholds and the honest Level 0 limitations
 
 from dataclasses import dataclass
 from typing import List
+from datetime import datetime, timedelta
+
+from app.db import get_db
+from sqlalchemy import text
 
 THRESHOLDS = {
     "ph":         {"min": 6.5, "max": 8.5},
@@ -121,3 +125,81 @@ if __name__ == "__main__":
 
     for tc in test_cases:
         print(evaluate_reading(tc))
+
+
+
+# ---------- DAY 2: Wire to real Postgres (SQLAlchemy) ----------
+
+def save_reading(reading: QualityReading, status: str) -> int:
+    """Insert a quality reading into quality_readings, return its new reading_id."""
+    db = next(get_db())
+    result = db.execute(text("""
+        INSERT INTO quality_readings
+            (zone_id, ph, turbidity, tds, chlorine, bacteria_cfu, hardness, timestamp, source)
+        VALUES (:zone_id, :ph, :turbidity, :tds, :chlorine, :bacteria_cfu, :hardness, :timestamp, :source)
+        RETURNING reading_id
+    """), {
+        "zone_id": reading.zone_id,
+        "ph": reading.ph,
+        "turbidity": reading.turbidity,
+        "tds": reading.tds,
+        "chlorine": reading.chlorine,
+        "bacteria_cfu": reading.bacteria_cfu,
+        "hardness": reading.hardness,
+        "timestamp": reading.timestamp,
+        "source": reading.source,
+    })
+    reading_id = result.fetchone()[0]
+    db.commit()
+    db.close()
+    return reading_id
+
+
+def find_correlation(zone_id: int, quality_timestamp, window_hours: int = 24) -> dict | None:
+    """
+    Look for a leak_alert in the same zone within `window_hours` of the
+    quality reading. Returns the matching alert row, or None.
+    """
+    db = next(get_db())
+    if isinstance(quality_timestamp, str):
+        quality_timestamp = datetime.fromisoformat(quality_timestamp)
+    window_start = quality_timestamp - timedelta(hours=window_hours)
+    window_end = quality_timestamp + timedelta(hours=window_hours)
+
+    result = db.execute(text("""
+        SELECT alert_id, estimated_loss_litres, confidence_score, method, timestamp
+        FROM leak_alerts
+        WHERE zone_id = :zone_id AND timestamp BETWEEN :window_start AND :window_end
+        ORDER BY timestamp DESC
+        LIMIT 1
+    """), {
+        "zone_id": zone_id,
+        "window_start": window_start,
+        "window_end": window_end,
+    })
+    row = result.fetchone()
+    db.close()
+    if row is None:
+        return None
+    return {
+        "alert_id": row[0],
+        "estimated_loss_litres": row[1],
+        "confidence_score": row[2],
+        "method": row[3],
+        "timestamp": row[4],
+    }
+
+
+    # Day 2 test — real insert into Supabase
+    test_reading = QualityReading(
+        zone_id=1, ph=6.1, turbidity=8.2, tds=610,
+        chlorine=0.1, bacteria_cfu=12, hardness=180,
+        timestamp="2026-08-16T14:30:00", source="manual"
+    )
+    result = evaluate_reading(test_reading)
+    reading_id = save_reading(test_reading, result["status"])
+    print(f"Saved reading {reading_id} with status {result['status']}")
+
+    # Day 2 test — correlation skeleton (fine if it returns None, leak_alerts may be sparse)
+    correlation = find_correlation(zone_id=1, quality_timestamp=test_reading.timestamp)
+    print(f"Correlation check: {correlation}")
