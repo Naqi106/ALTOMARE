@@ -28,6 +28,7 @@ const AnalyticsPlaceholder: React.FC<{ title: string; label: string; accent: str
 export const Dashboard: React.FC = () => {
   const [zones, setZones] = useState<Zone[]>([]);
   const [alerts, setAlerts] = useState<LeakAlert[]>([]);
+  const [alertsError, setAlertsError] = useState<boolean>(false);
   const [correlations, setCorrelations] = useState<CorrelationEvent[]>([]);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
   const [revenue, setRevenue] = useState<{ total_recovered: number }>({ total_recovered: 0 });
@@ -35,15 +36,23 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [zonesData, alertsData, revData] = await Promise.all([
+        const [zonesData, revData] = await Promise.all([
           getZones(),
-          getAlerts(),
           getRevenueSummary()
         ]);
 
         setZones(zonesData);
-        setAlerts(alertsData);
         setRevenue(revData as { total_recovered: number });
+
+        let alertsData: LeakAlert[] = [];
+        try {
+          alertsData = await getAlerts();
+          setAlerts(alertsData);
+          setAlertsError(false);
+        } catch (error) {
+          console.error("Failed to fetch alerts:", error);
+          setAlertsError(true);
+        }
 
         const allCorrelations = await Promise.all(
           zonesData.map(z => getCorrelation(z.zone_id))
@@ -149,13 +158,22 @@ export const Dashboard: React.FC = () => {
               <span className="rounded border border-status-alert/30 bg-status-alert/10 px-2 py-1 text-[11px] font-black text-status-alert">{activeAlerts} Active</span>
             </div>
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
-              {alerts.length > 0 ? (
+              {alertsError ? (
+                <div className="mt-10 text-center">
+                  <p className="text-sm font-semibold text-status-critical">Failed to load alerts</p>
+                  <p className="mt-1 text-xs text-slate-500">Could not connect to the alerts service.</p>
+                </div>
+              ) : alerts.length > 0 ? (
                 alerts.map(alert => (
-                  <AlertCard
-                    key={alert.alert_id}
-                    alert={alert}
-                    zoneName={zoneNameById.get(alert.zone_id) || `Zone ${alert.zone_id}`}
-                  />
+                  <div key={alert.alert_id} className="cursor-pointer" onClick={() => {
+                    const zone = zones.find(z => z.zone_id === alert.zone_id);
+                    if (zone) setSelectedZone(zone);
+                  }}>
+                    <AlertCard
+                      alert={alert}
+                      zoneName={zoneNameById.get(alert.zone_id) || `Zone ${alert.zone_id}`}
+                    />
+                  </div>
                 ))
               ) : (
                 <p className="mt-10 text-center text-sm text-slate-500">No active alerts</p>

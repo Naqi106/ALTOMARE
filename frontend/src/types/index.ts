@@ -1,7 +1,7 @@
 export type RiskLevel = 'SAFE' | 'WARNING' | 'ALERT' | 'CRITICAL';
 
 export interface Zone {
-  zone_id: number;
+  zone_id: string;
   name: string;
   geometry: any; // Using any for Day 1 as geometry structure from PostGIS might vary
   pipe_age_years: number;
@@ -11,7 +11,7 @@ export interface Zone {
 
 export interface RawReading {
   reading_id: number;
-  zone_id: number;
+  zone_id: string;
   type: string;
   value: number;
   unit: string;
@@ -21,7 +21,7 @@ export interface RawReading {
 
 export interface BillingRecord {
   record_id: number;
-  zone_id: number;
+  zone_id: string;
   household_id: number;
   billed_litres: number;
   benchmark_litres: number;
@@ -30,7 +30,7 @@ export interface BillingRecord {
 
 export interface LeakAlert {
   alert_id: number;
-  zone_id: number;
+  zone_id: string;
   estimated_loss_litres: number;
   confidence_score: number;
   method: string;
@@ -40,7 +40,7 @@ export interface LeakAlert {
 
 export interface QualityReading {
   reading_id: number;
-  zone_id: number;
+  zone_id: string;
   ph: number;
   turbidity: number;
   tds: number;
@@ -53,7 +53,7 @@ export interface QualityReading {
 
 export interface CorrelationEvent {
   event_id: number;
-  zone_id: number;
+  zone_id: string;
   leak_alert_id: number;
   quality_reading_id: number;
   leak_caused_contamination: boolean;
@@ -62,7 +62,7 @@ export interface CorrelationEvent {
 
 export interface RevenueLog {
   log_id: number;
-  zone_id: number;
+  zone_id: string;
   leak_alert_id: number;
   litres_recovered: number;
   amount_recovered: number;
