@@ -1,37 +1,34 @@
 """
-REVENUE ENGINE — owned by Piyush
+REVENUE ENGINE — owned by Piyush (built by Naqi covering for him, Day 3)
 Revenue Recovered tracker + ROI-based repair prioritization.
 
-This depends on Kushagra's (latias.py) and Palak's (latios.py) outputs
-being live before your numbers mean anything real — sync with them
-before wiring against real data.
+Formulas from Section 7.2 / 7.3 of the Master Execution Document:
+    Revenue Recovered = Litres recovered after fix x Local water tariff rate
+    Payback period ~= Estimated repair cost / Daily revenue loss from that zone
 
-HOW THIS CONNECTS TO THE REST OF THE SYSTEM:
-- Read from the revenue_log table (via app/db.py) once repairs/fixes
-  are logged
-- Shape output like RevenueLogEntry / RevenueSummary in app/models.py
-- Naqi will wire your functions into GET /revenue/summary in
-  app/routers/core.py
-
-Suggested function signatures to build toward:
-
-    def calculate_revenue_recovered(zone_id: str) -> float:
-        # Litres recovered after fix x local tariff rate
-        # Section 7.2, Master Execution Document
-        ...
-
-    def calculate_payback_period(zone_id: str, repair_cost_estimate: float) -> float:
-        # Estimated repair cost / Daily revenue loss from that zone
-        # Section 7.3
-        ...
-
-    def get_revenue_summary() -> RevenueSummary:
-        # aggregates across all zones for the dashboard total
-        ...
-
-Start Day 1 with the formulas sketched against fake numbers on paper.
-Build the real calculators Day 3, once Kushagra/Palak have live data
-to calculate against.
+TARIFF_RATE is a placeholder (Rs 5 per 1000 litres = Rs 0.005/litre, a
+common Indian municipal rate) — change this one constant if the team
+wants a different number for the demo.
 """
 
-# Your code starts here.
+TARIFF_RATE_PER_LITRE = 0.005  # Rs per litre — adjust here if needed
+
+
+def calculate_revenue_recovered(litres_recovered: float, tariff_rate: float = TARIFF_RATE_PER_LITRE) -> float:
+    """
+    Section 7.2: Revenue Recovered = Litres recovered after fix x tariff rate.
+    """
+    return round(litres_recovered * tariff_rate, 2)
+
+
+def calculate_payback_period(repair_cost_estimate: float, daily_revenue_loss: float) -> float:
+    """
+    Section 7.3: Payback period (in days) = repair cost / daily revenue loss.
+    daily_revenue_loss is estimated_loss_litres (from leak_alerts, treated as
+    a per-day estimate) x tariff_rate.
+    Returns float('inf') if there's no daily loss to recover against (avoids
+    a divide-by-zero crash if a zone has no measurable loss).
+    """
+    if daily_revenue_loss <= 0:
+        return float("inf")
+    return round(repair_cost_estimate / daily_revenue_loss, 1)

@@ -19,9 +19,10 @@ from app.db import get_db
 from app.models import (
     Zone, RawReadingIn, RawReading, LeakAlert,
     QualityReadingIn, QualityReading, CorrelationEvent,
-    RevenueSummary, NotifyRequest,
+    RevenueSummary, RevenueLogEntry, NotifyRequest,
 )
-from app.mock_data import MOCK_REVENUE_SUMMARY
+from app.engines.revenue import calculate_revenue_recovered
+from app.alerts.notify import send_alert, format_alert_message
 
 router = APIRouter()
 
@@ -209,19 +210,94 @@ def get_correlation(zone_id: str):
         db.close()
 
 
-# ---------- 6. GET /revenue/summary (still mock — Piyush's module, Day 4) ----------
+# ---------- 6. GET /revenue/summary — NOW LIVE ----------
 @router.get("/revenue/summary", response_model=RevenueSummary)
 def get_revenue_summary():
-    """TODO Day 4: replace with Piyush's live revenue_log aggregation."""
-    return MOCK_REVENUE_SUMMARY
+    """
+    Aggregates Piyush's revenue_log table: running total + per-zone breakdown.
+    """
+    db = next(get_db())
+    try:
+        result = db.execute(
+            text("SELECT zone_id, SUM(amount_recovered) AS zone_total FROM revenue_log GROUP BY zone_id")
+        )
+        rows = result.mappings().all()
+        by_zone = {row["zone_id"]: float(row["zone_total"]) for row in rows}
+        total_recovered = round(sum(by_zone.values()), 2)
+        return RevenueSummary(total_recovered=total_recovered, by_zone=by_zone)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch revenue summary: {str(e)}")
+    finally:
+        db.close()
 
 
-# ---------- 7. POST /alerts/notify (still mock — Piyush's module, Day 4) ----------
+# ---------- 6b. POST /revenue/recover — ADDITION beyond the original 7-endpoint
+# contract. Lets a resolved leak_alert actually generate a revenue_log entry
+# using the Section 7.2 formula, instead of relying on manually seeded rows.
+# Flag this to the team since it's not in Section 11.2 as originally locked.
+@router.post("/revenue/recover", response_model=RevenueLogEntry)
+def record_revenue_recovered(zone_id: str, leak_alert_id: int, litres_recovered: float, billing_cycle: str):
+    """
+    Marks a fix as having recovered water for a zone: calculates the money
+    value (Section 7.2) and logs it to revenue_log.
+    """
+    db = next(get_db())
+    try:
+        amount_recovered = calculate_revenue_recovered(litres_recovered)
+
+        result = db.execute(
+            text("""
+                INSERT INTO revenue_log (zone_id, leak_alert_id, litres_recovered, amount_recovered, billing_cycle)
+                VALUES (:zone_id, :leak_alert_id, :litres_recovered, :amount_recovered, :billing_cycle)
+                RETURNING log_id
+            """),
+            {
+                "zone_id": zone_id,
+                "leak_alert_id": leak_alert_id,
+                "litres_recovered": litres_recovered,
+                "amount_recovered": amount_recovered,
+                "billing_cycle": billing_cycle,
+            },
+        )
+        log_id = result.scalar()
+        db.commit()
+
+        return RevenueLogEntry(
+            log_id=log_id, zone_id=zone_id, leak_alert_id=leak_alert_id,
+            litres_recovered=litres_recovered, amount_recovered=amount_recovered,
+            billing_cycle=billing_cycle,
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to record revenue: {str(e)}")
+    finally:
+        db.close()
+
+
+# ---------- 7. POST /alerts/notify — NOW LIVE (with safe fallback) ----------
 @router.post("/alerts/notify")
 def notify_alert(request: NotifyRequest):
-    """TODO Day 4: wire to Piyush's Twilio/WhatsApp sandbox trigger."""
-    return {
-        "status": "queued (mock - not actually sent yet)",
-        "alert_id": request.alert_id,
-        "channel": request.channel,
-    }
+    """
+    Looks up the alert, formats a message, sends via Twilio/WhatsApp if
+    credentials are configured — otherwise logs what WOULD be sent, so the
+    demo doesn't break if the sandbox isn't set up yet.
+    """
+    db = next(get_db())
+    try:
+        result = db.execute(
+            text("SELECT alert_id, zone_id, estimated_loss_litres, confidence_score, method, status FROM leak_alerts WHERE alert_id = :alert_id"),
+            {"alert_id": request.alert_id},
+        )
+        row = result.mappings().first()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"No alert with id {request.alert_id}")
+
+        message = format_alert_message(dict(row))
+        delivery = send_alert(alert_id=request.alert_id, message=message, channel=request.channel)
+        return delivery
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send alert: {str(e)}")
+    finally:
+        db.close()
