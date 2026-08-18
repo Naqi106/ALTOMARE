@@ -1,6 +1,6 @@
 import axios from 'axios';
 import type { Zone, LeakAlert, CorrelationEvent } from '../types';
-import { mockZones, mockAlerts, mockCorrelationEvents, mockRevenueSummary } from '../data/mockData';
+import { mockZones, mockCorrelationEvents, mockRevenueSummary } from '../data/mockData';
 
 // Stub Axios instance for Day 1
 const api = axios.create({
@@ -13,10 +13,11 @@ export const getZones = async (): Promise<Zone[]> => {
 };
 
 export const getAlerts = async (): Promise<LeakAlert[]> => {
-  return new Promise((resolve) => setTimeout(() => resolve(mockAlerts), 500));
+  const response = await api.get('/alerts');
+  return response.data;
 };
 
-export const getCorrelation = async (zone_id: number): Promise<CorrelationEvent[]> => {
+export const getCorrelation = async (zone_id: string): Promise<CorrelationEvent[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve(mockCorrelationEvents.filter(e => e.zone_id === zone_id));

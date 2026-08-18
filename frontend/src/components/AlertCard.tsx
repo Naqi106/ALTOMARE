@@ -1,6 +1,7 @@
 import React from 'react';
 import type { LeakAlert } from '../types';
 import { StatusBadge } from './StatusBadge';
+import { getDemoVisualSeverity } from '../utils/status';
 import { AlertCircle, Clock, Droplets } from 'lucide-react';
 
 interface AlertCardProps {
@@ -37,7 +38,7 @@ export const AlertCard: React.FC<AlertCardProps> = ({ alert, zoneName }) => {
             </div>
           </div>
         </div>
-        <StatusBadge status={alert.status === 'active' ? 'ALERT' : 'SAFE'} />
+        <StatusBadge status={getDemoVisualSeverity(alert)} />
       </div>
 
       <div className="flex items-end justify-between gap-4">

@@ -19,7 +19,7 @@ export const getZoneStatus = (
   // Check alerts
   const zoneAlerts = alerts.filter(a => a.zone_id === zone.zone_id && a.status === 'active');
   
-  if (zoneAlerts.some(a => a.estimated_loss_litres > 100000)) {
+  if (zoneAlerts.some(a => a.estimated_loss_litres >= 100000)) {
     return 'ALERT';
   }
   
@@ -28,6 +28,21 @@ export const getZoneStatus = (
   }
 
   return 'SAFE';
+};
+
+/**
+ * TEMPORARY PRESENTATION MAPPING:
+ * The backend 'leak_alerts' schema only defines status: 'active' | 'resolved'.
+ * It does NOT define visual severity (SAFE, WARNING, ALERT, CRITICAL).
+ * This function isolates the visual risk mapping to the frontend.
+ * 
+ * The 100,000L threshold is an unofficial frontend demo rule and 
+ * NOT a confirmed backend business rule.
+ */
+export const getDemoVisualSeverity = (alert: LeakAlert): RiskLevel => {
+  if (alert.status !== 'active') return 'SAFE';
+  if (alert.estimated_loss_litres >= 100000) return 'ALERT';
+  return 'WARNING';
 };
 
 export const getStatusColor = (status: RiskLevel) => {
