@@ -111,13 +111,19 @@ conn.commit()
 print(f"  ✓ {len(zones) * 90} inflow readings created")
 
 print("\n🧪 Populating quality readings...")
+
+# Get zone_3's inflow dates where leak is detected (week 8+)
+zone_3_leak_start = base_date + timedelta(days=56)  # Week 8 = day 56
+
 for zone_id in zones:
     for week in range(13):
         reading_date = base_date + timedelta(days=week * 7)
-        is_alert_week = (zone_id == "zone_3" and week >= 8)
+        
+        # CRITICAL: zone_3 should have contamination EXACTLY when it has high inflow (leak)
+        is_alert_week = (zone_id == "zone_3" and reading_date >= zone_3_leak_start)
         
         ph = 7.2
-        turbidity = 8 if is_alert_week else 0.5
+        turbidity = 8.5 if is_alert_week else 0.5  # ALERT level when leak is detected
         tds = 250
         chlorine = 0.8
         bacteria_cfu = 0
@@ -129,7 +135,7 @@ for zone_id in zones:
         )
 
 conn.commit()
-print(f"  ✓ {len(zones) * 13} quality readings created")
+print(f"  ✓ {len(zones) * 13} quality readings created (zone_3 contamination seeded with leak)")
 
 print("\n✅ SYNTHETIC DATA READY!")
 print(f"  Zones: {len(zones)}")
