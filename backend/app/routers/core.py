@@ -189,14 +189,14 @@ def get_correlation(zone_id: str):
     try:
         result = db.execute(
             text("""
-                SELECT event_id, zone_id, leak_alert_id, quality_reading_id,
-                       leak_caused_contamination, risk_level
-                FROM correlation_events
-                WHERE zone_id = :zone_id
-                ORDER BY created_at DESC
-                LIMIT 1
-            """),
-            {"zone_id": zone_id},
+                    SELECT event_id, zone_id, leak_alert_id, quality_reading_id,
+                        leak_caused_contamination, risk_level
+                    FROM correlation_events
+                    WHERE zone_id = :zone_id
+                    ORDER BY event_id DESC
+                    LIMIT 1
+                """),
+                {"zone_id": zone_id},
         )
         row = result.mappings().first()
         if not row:
