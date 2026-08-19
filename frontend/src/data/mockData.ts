@@ -1,13 +1,26 @@
 import type { Zone, LeakAlert, QualityReading, CorrelationEvent } from '../types';
 
 // Mock Geometry (Polygon coordinates for Leaflet)
-const getRectGeometry = (lat: number, lng: number, size: number = 0.005) => {
+const getRectGeometry = (lat: number, lng: number, size: number = 0.005): [number, number][] => {
   return [
     [lat, lng],
     [lat + size, lng],
     [lat + size, lng + size],
     [lat, lng + size],
   ];
+};
+
+export const getDeterministicGeometry = (zoneId: string, index: number = 0): [number, number][] => {
+  const predefined = mockZones.find(mz => mz.zone_id === zoneId);
+  if (predefined && Array.isArray(predefined.geometry) && predefined.geometry.length > 0) {
+    return predefined.geometry;
+  }
+  const num = parseInt(zoneId.replace(/\D/g, ''), 10) || (index + 1);
+  const row = Math.floor((num - 1) / 3);
+  const col = (num - 1) % 3;
+  const baseLat = 28.5950 + row * 0.010;
+  const baseLng = 77.1900 + col * 0.015;
+  return getRectGeometry(baseLat, baseLng, 0.006);
 };
 
 export const mockZones: Zone[] = [
@@ -19,6 +32,8 @@ export const mockZones: Zone[] = [
   { zone_id: "zone_6", name: "Industrial Estate", geometry: getRectGeometry(28.6250, 77.2150), pipe_age_years: 60, population: 5000, data_level: 0 },
   { zone_id: "zone_7", name: "Residential Annex", geometry: getRectGeometry(28.6000, 77.1900), pipe_age_years: 10, population: 9500, data_level: 1 },
   { zone_id: "zone_8", name: "Old City", geometry: getRectGeometry(28.6300, 77.2250), pipe_age_years: 80, population: 35000, data_level: 0 },
+  { zone_id: "zone_9", name: "Commerce Park", geometry: getRectGeometry(28.6350, 77.2050), pipe_age_years: 40, population: 1200, data_level: 1 },
+  { zone_id: "zone_10", name: "Riverside District", geometry: getRectGeometry(28.5950, 77.2150), pipe_age_years: 38, population: 7000, data_level: 0 },
 ];
 
 export const mockAlerts: LeakAlert[] = [

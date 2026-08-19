@@ -97,6 +97,9 @@ export const ZoneMap: React.FC<ZoneMapProps> = React.memo(({ zones, alerts, corr
         <ZoomControl position="bottomright" />
 
         {zones.map(zone => {
+          if (!zone.geometry || !Array.isArray(zone.geometry) || zone.geometry.length === 0) {
+            return null;
+          }
           const status = zoneStatuses.get(zone.zone_id) ?? 'SAFE';
 
           return (
