@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from typing import List
 from datetime import datetime, timedelta
 
-from backend.app.db import get_db
+from app.db import get_db
 from sqlalchemy import text
 
 THRESHOLDS = {
@@ -188,29 +188,13 @@ def find_correlation(zone_id: int, quality_timestamp, window_hours: int = 24) ->
     }
 
 
-    # Day 2 test — real insert into Supabase
-    test_reading = QualityReading(
-        zone_id=1, ph=6.1, turbidity=8.2, tds=610,
-        chlorine=0.1, bacteria_cfu=12, hardness=180,
-        timestamp="2026-08-16T14:30:00", source="manual"
-    )
-    result = evaluate_reading(test_reading)
-    reading_id = save_reading(test_reading, result["status"])
-    print(f"Saved reading {reading_id} with status {result['status']}")
-
-    # Day 2 test — correlation skeleton (fine if it returns None, leak_alerts may be sparse)
-    correlation = find_correlation(zone_id=1, quality_timestamp=test_reading.timestamp)
-    print(f"Correlation check: {correlation}")
+    
 
 # latios_correlation.py
 
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
-from backend.app.db import get_db
-from sqlalchemy import text
-from datetime import datetime, timedelta
 
 def calculate_risk_level(leak_confidence: float, quality_status: str) -> str:
     """

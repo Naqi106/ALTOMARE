@@ -5,3 +5,7 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 twilio
+pandas
+numpy
+pytest
+

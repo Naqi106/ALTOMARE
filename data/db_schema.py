@@ -77,7 +77,7 @@ try:
             zone_id VARCHAR(50) NOT NULL REFERENCES zones(zone_id),
             estimated_loss_litres FLOAT,
             confidence_score FLOAT CHECK (confidence_score >= 0 AND confidence_score <= 1),
-            method VARCHAR(50) CHECK (method IN ('water_balance', 'mnf', 'ppa')),
+            method VARCHAR(50) CHECK (method IN ('water_balance', 'mnf', 'ppa', 'billing_anomaly')),
             timestamp TIMESTAMP NOT NULL,
             status VARCHAR(50) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
