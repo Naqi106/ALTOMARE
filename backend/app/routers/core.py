@@ -23,6 +23,7 @@ from app.models import (
 )
 from app.engines.revenue import calculate_revenue_recovered
 from app.alerts.notify import send_alert, format_alert_message
+from app.engines.latios import find_correlations_for_zone
 
 router = APIRouter()
 
@@ -167,7 +168,10 @@ def post_quality(reading: QualityReadingIn):
         )
         reading_id = result.scalar()
         db.commit()
-
+        try:
+            find_correlations_for_zone(reading.zone_id)
+        except Exception as e:
+            print(f"[correlation check failed, non-fatal] {e}")
         data = reading.dict(exclude={"timestamp"})
         data["bacteria_cfu"] = bacteria_cfu
         return QualityReading(reading_id=reading_id, timestamp=timestamp, **data)
@@ -301,3 +305,30 @@ def notify_alert(request: NotifyRequest):
         raise HTTPException(status_code=500, detail=f"Failed to send alert: {str(e)}")
     finally:
         db.close()
+
+from app.engines.latias import flag_anomalous_households, simulate_ppa, estimate_leak_location
+import pandas as pd
+@router.get("/audit/billing/{zone_id}")
+def get_billing_audit(zone_id: str):
+    """Ranked list of suspected theft/tampering households for a zone (Section 7.1)."""
+    db = next(get_db())
+    try:
+        rows = db.execute(
+            text("SELECT household_id, billed_litres, benchmark_litres FROM billing_records WHERE zone_id = :z"),
+            {"z": zone_id},
+        ).mappings().all()
+        if not rows:
+            return {"zone_id": zone_id, "flagged": []}
+        df = pd.DataFrame(rows)
+        flagged = flag_anomalous_households(df)
+        return {"zone_id": zone_id, "flagged": flagged.to_dict(orient="records")}
+    finally:
+        db.close()
+
+@router.get("/audit/ppa/{zone_id}")
+def get_ppa_location(zone_id: str, leak_position_m: float = 320):
+    """Simulated pressure-point analysis narrowing a leak's location within a zone (Section 6)."""
+    sensors = [0, 150, 300, 450]
+    readings = simulate_ppa(sensors, leak_position_m=leak_position_m)
+    estimated = estimate_leak_location(readings)
+    return {"zone_id": zone_id, "sensor_readings": readings, "estimated_leak_position_m": estimated}        
