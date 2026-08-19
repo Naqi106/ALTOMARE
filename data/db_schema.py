@@ -1,14 +1,17 @@
-import psycopg2
+"""
+db_schema.py — Creates all 7 AltoMare tables with zone_id as VARCHAR
+"""
 
-# Read .env.local directly
-DATABASE_URL = ""
-with open('.env.local') as f:
-    for line in f:
-        if line.startswith('DATABASE_URL'):
-            DATABASE_URL = line.split('=', 1)[1].strip()
+import psycopg2
+from dotenv import load_dotenv
+import os
+
+load_dotenv('.env.local')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 if not DATABASE_URL:
-    raise ValueError("ERROR: DATABASE_URL not found in .env.local")
+    print("ERROR: DATABASE_URL not found in .env.local")
+    exit(1)
 
 print(f"Connecting to database...")
 
