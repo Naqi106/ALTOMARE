@@ -87,13 +87,12 @@ def get_zone_readings(zone_id: str):
     db = next(get_db())
     try:
         inflow = db.execute(
-            text("""
-                SELECT value FROM raw_readings
-                WHERE zone_id = :z AND type = 'inflow'
-                ORDER BY timestamp DESC LIMIT 1
-            """),
-            {"z": zone_id}
-        ).scalar()
+    text("""
+        SELECT SUM(value) FROM raw_readings
+        WHERE zone_id = :z AND type = 'inflow'
+    """),
+    {"z": zone_id}
+).scalar()
 
         billed = db.execute(
             text("SELECT SUM(billed_litres) FROM billing_records WHERE zone_id = :z"),

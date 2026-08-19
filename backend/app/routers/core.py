@@ -24,6 +24,7 @@ from app.models import (
 from app.engines.revenue import calculate_revenue_recovered
 from app.alerts.notify import send_alert, format_alert_message
 from app.engines.latios import find_correlations_for_zone
+from app.engines.latias import process_zone
 
 router = APIRouter()
 
@@ -128,6 +129,16 @@ def get_alerts(zone_id: str | None = None, status: str | None = None):
         raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {str(e)}")
     finally:
         db.close()
+@router.post("/detect/{zone_id}", response_model=LeakAlert | None)
+def trigger_detection(zone_id: str, authorized_unbilled_litres: float = 0):
+    """
+    Runs Kushagra's water-balance detection for one zone right now.
+    """
+    try:
+        alert = process_zone(zone_id, authorized_unbilled_litres)
+        return alert
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Detection failed for {zone_id}: {str(e)}")        
 
 
 # ---------- 4. POST /quality — NOW LIVE ----------
