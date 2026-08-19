@@ -96,7 +96,7 @@ for zone_id in zones:
         for h in households.values() 
         if h['zone_id'] == zone_id
     )
-    leak_multiplier = 1.35 if zone_id == "zone_3" else 1.05
+    leak_multiplier = 1.5 if zone_id == "zone_3" else 1.05  
     
     for day_offset in range(90):
         reading_date = base_date + timedelta(days=day_offset)
