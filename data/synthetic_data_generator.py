@@ -1,15 +1,21 @@
-"""
-synthetic_data_generator.py — Creates data with zone_id as VARCHAR strings like "zone_1", "zone_2"
-"""
-
 import psycopg2
 from datetime import datetime, timedelta
 import random
-from dotenv import load_dotenv
-import os
 
-load_dotenv('.env.local')
-DATABASE_URL = os.getenv('DATABASE_URL')
+# Read DATABASE_URL from .env.local with proper encoding handling
+DATABASE_URL = ""
+try:
+    with open('.env.local', 'r', encoding='utf-8-sig') as f:
+        for line in f:
+            line = line.strip()
+            if 'DATABASE_URL' in line and '=' in line:
+                DATABASE_URL = line.split('=', 1)[1].strip()
+                break
+except Exception as e:
+    print(f"Error reading .env.local: {e}")
+
+if not DATABASE_URL:
+    raise ValueError("ERROR: DATABASE_URL not found")
 
 conn = psycopg2.connect(DATABASE_URL)
 cursor = conn.cursor()
