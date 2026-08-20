@@ -19,7 +19,7 @@ from app.db import get_db
 from app.models import (
     Zone, RawReadingIn, RawReading, LeakAlert,
     QualityReadingIn, QualityReading, CorrelationEvent,
-    RevenueSummary, RevenueLogEntry, NotifyRequest,
+    RevenueSummary, RevenueLogEntry, NotifyRequest, NRWSummary,
 )
 from app.engines.revenue import calculate_revenue_recovered
 from app.alerts.notify import send_alert, format_alert_message
@@ -129,16 +129,25 @@ def get_alerts(zone_id: str | None = None, status: str | None = None):
         raise HTTPException(status_code=500, detail=f"Failed to fetch alerts: {str(e)}")
     finally:
         db.close()
+
+
+# ---------- 3b. POST /detect/{zone_id} — ADDITION beyond the original 7-endpoint
+# contract. Triggers Kushagra's Latias engine to actually run detection for a
+# zone and write a new row to leak_alerts, instead of leak_alerts only ever
+# being populated by someone manually running his script. Without this, GET
+# /alerts has nothing to show even though the detection logic works.
 @router.post("/detect/{zone_id}", response_model=LeakAlert | None)
 def trigger_detection(zone_id: str, authorized_unbilled_litres: float = 0):
     """
     Runs Kushagra's water-balance detection for one zone right now.
+    Returns the new LeakAlert if loss was detected, or null if the zone's
+    water balance shows no loss (or if inflow/billing data is missing).
     """
     try:
         alert = process_zone(zone_id, authorized_unbilled_litres)
         return alert
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Detection failed for {zone_id}: {str(e)}")        
+        raise HTTPException(status_code=500, detail=f"Detection failed for {zone_id}: {str(e)}")
 
 
 # ---------- 4. POST /quality — NOW LIVE ----------
@@ -194,11 +203,14 @@ def post_quality(reading: QualityReadingIn):
 
 
 # ---------- 5. GET /correlation/{zone_id} — NOW LIVE ----------
-@router.get("/correlation/{zone_id}", response_model=CorrelationEvent)
+@router.get("/correlation/{zone_id}", response_model=CorrelationEvent | None)
 def get_correlation(zone_id: str):
     """
     Get the most recent leak-quality correlation status for a zone.
     Reads from Palak's Supabase 'correlation_events' table.
+    Returns null (200) if no correlation exists yet — this is a normal,
+    expected state (most zones won't have one until a leak + bad quality
+    reading line up), not an error condition.
     """
     db = next(get_db())
     try:
@@ -215,12 +227,54 @@ def get_correlation(zone_id: str):
         )
         row = result.mappings().first()
         if not row:
-            raise HTTPException(status_code=404, detail=f"No correlation data for {zone_id} yet")
+            return None
         return CorrelationEvent(**dict(row))
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch correlation data: {str(e)}")
+    finally:
+        db.close()
+
+
+# ---------- 5b. GET /nrw/summary — ADDITION beyond the original 7-endpoint
+# contract. Computes real NRW% per zone and overall, from actual inflow vs
+# billed data (Section 2/5 formula), instead of a hardcoded dashboard number.
+@router.get("/nrw/summary", response_model=NRWSummary)
+def get_nrw_summary():
+    """
+    NRW% = (Inflow - Billed) / Inflow x 100, per zone and aggregated overall.
+    Zones with no inflow readings yet are skipped (can't divide by zero),
+    not shown as a false 0%.
+    """
+    db = next(get_db())
+    try:
+        inflow_rows = db.execute(
+            text("SELECT zone_id, SUM(value) AS total_inflow FROM raw_readings WHERE type = 'inflow' GROUP BY zone_id")
+        ).mappings().all()
+        billed_rows = db.execute(
+            text("SELECT zone_id, SUM(billed_litres) AS total_billed FROM billing_records GROUP BY zone_id")
+        ).mappings().all()
+
+        inflow_by_zone = {row["zone_id"]: float(row["total_inflow"] or 0) for row in inflow_rows}
+        billed_by_zone = {row["zone_id"]: float(row["total_billed"] or 0) for row in billed_rows}
+
+        by_zone: dict[str, float] = {}
+        total_inflow = 0.0
+        total_loss = 0.0
+
+        for zone_id, inflow in inflow_by_zone.items():
+            if inflow <= 0:
+                continue  # can't compute a percentage against zero inflow
+            billed = billed_by_zone.get(zone_id, 0.0)
+            loss = max(inflow - billed, 0.0)  # floor at 0 - can't have negative loss
+            by_zone[zone_id] = round((loss / inflow) * 100, 1)
+            total_inflow += inflow
+            total_loss += loss
+
+        total_nrw_percent = round((total_loss / total_inflow) * 100, 1) if total_inflow > 0 else 0.0
+
+        return NRWSummary(total_nrw_percent=total_nrw_percent, by_zone=by_zone)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compute NRW summary: {str(e)}")
     finally:
         db.close()
 

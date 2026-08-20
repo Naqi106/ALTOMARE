@@ -9,7 +9,7 @@ import { RevenueCard } from '../components/RevenueCard';
 import { LiveAlertFeed } from '../components/LiveAlertFeed';
 
 import type { Zone, CorrelationEvent, LeakAlert } from '../types';
-import { getZones, getCorrelation } from '../services/api';
+import { getZones, getCorrelation, getNRWSummary } from '../services/api';
 
 import { AlertTriangle, Droplets, ShieldAlert, Waves } from 'lucide-react';
 
@@ -29,6 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [zones, setZones] = useState<Zone[]>([]);
   const [correlations, setCorrelations] = useState<CorrelationEvent[]>([]);
   const [selectedZone, setSelectedZone] = useState<Zone | null>(null);
+  const [nrwPercent, setNrwPercent] = useState<number>(0);
 
   const alerts = sharedAlerts;
   const alertsLoading = sharedAlertsLoading;
@@ -42,6 +43,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         setZones(zonesData);
       } catch (error) {
         console.error("Failed to load initial dashboard data", error);
+      }
+
+      try {
+        const nrwData = await getNRWSummary();
+        setNrwPercent(nrwData.total_nrw_percent);
+      } catch (error) {
+        console.error("Failed to load NRW summary", error);
       }
     };
 
@@ -66,7 +74,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [selectedZone]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const totalNRW = 24.7;
   const activeAlertsCount = useMemo(() => alerts.filter(a => a.status === 'active').length, [alerts]);
   const unsafeZones = useMemo(() => new Set([
     ...alerts.filter(a => a.status === 'active').map(a => a.zone_id),
@@ -78,10 +85,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-5 2xl:gap-5">
         <KPICard
           title="Total NRW"
-          value={`${totalNRW}%`}
-          subtitle="Network loss index"
-          trend="down"
-          trendValue="1.2%"
+          value={`${nrwPercent}%`}
+          subtitle="Network loss index (live)"
           accentColor="border-l-4 border-l-slate-400 border-slate-700"
           icon={Droplets}
         />

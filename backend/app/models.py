@@ -89,6 +89,12 @@ class RevenueSummary(BaseModel):
     by_zone: dict[str, float]
 
 
+# ---------- NRW SUMMARY (real water-balance NRW%, per Section 2/5) ----------
+class NRWSummary(BaseModel):
+    total_nrw_percent: float
+    by_zone: dict[str, float]  # zones with zero inflow data are omitted, not shown as 0
+
+
 # ---------- NOTIFY REQUEST (Piyush triggers this) ----------
 class NotifyRequest(BaseModel):
     alert_id: int  # references leak_alerts.alert_id (SERIAL/int)
