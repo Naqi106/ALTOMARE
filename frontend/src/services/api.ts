@@ -47,6 +47,11 @@ export const getRevenueSummary = async () => {
   return response.data;
 };
 
+export const getNRWSummary = async () => {
+  const response = await api.get('/nrw/summary');
+  return response.data;
+};
+
 // Functions to be wired up later
 export const postReading = async (data: any) => {
   return api.post('/readings', data);
